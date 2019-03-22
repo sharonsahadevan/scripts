@@ -1,0 +1,60 @@
+#!/bin/bash
+.replication.conf
+
+# This script will be run after deciding which server is master
+# After deciding run the script
+# First script will check if postgres is running as master or not then it will rename current
+# data directory with the current date.
+
+
+#CheckIfMasterIsActuallyAMaster
+ismaster="$(ssh postgres@"$PG_SLAVE_SERVER_IP" 'if [ -f /var/lib/postgresql/9.6/main/recovery.done ]; then echo "postgres_is_a_master_instance"; else echo "postgres_is_not_master"; fi;')"
+ 
+if [[ "$ismaster" = "postgres_is_not_master" ]]
+then 
+        echo "postgres is already running as a slave, exiting"; 
+        exit 1
+
+elif [[ "$ismaster" = "postgres_is_a_master_instance" ]]
+then
+       echo "postgres is running as master (probably)";
+       master=1;
+
+elif echo "unexpected response, exiting"
+then
+        exit 1
+
+fi
+
+
+# Run the backup in the slave server which is going to be the master
+service postgresql stop
+
+# rename the current data directory
+if [-d PG_SVR_2_DATA_DIR ];then
+        mv $PG_SLAVE_SVR_DATA_DIR $PG_SLAVE_SVR_DATA_DIR$(date +"%m_%d_%y")
+else
+        echo " Data directory not exist"
+fi
+pg_basebackup -h $PG_MASTER_SVR_IP -p $PG_PORT -D $PG_SLAVE_SVR_DATA_DIR -U rep -v -P
+
+if [ ! -e "$PG_SLAVE_SVR_DATA_DIR/recovery.done" ]; then
+        echo "recovery.done file not found, creating recovery.conf"
+        echo "standby_mode = 'on'" > $PG_SLAVE_SVR_DATA_DIR/recovery.conf
+        echo "primary_conninfo = 'host=$PG_MASTER_SVR_IP port=$PG_PORT user=$REP_USER password=$REP_PWD'" >> $PG_MASTER_SVR_IP/recovery.conf
+        echo "trigger_file = '/tmp/postgresql.trigger.$PG_PORT'" >> $PG_SVR_1_DATA_DIR/recovery.conf
+        else
+        mv $PG_SLAVE_SVR_DATA_DIR/recovery.done $PG_SLAVE_SVR_DATA_DIR/recovery.done$(date +"%m_%d_%y")
+        echo "recovery.done file found, renaming the recovery.done file and creating recovery.conf file"
+         echo "standby_mode = 'on'" > $PG_SLAVE_SVR_DATA_DIR/recovery.conf
+        echo "primary_conninfo = 'host=$PG_MASTER_SVR_IP port=$PG_PORT user=$REP_USER password=$REP_PWD'" >> $PG_MASTER_SVR_IP/recovery.conf
+        echo "trigger_file = '/tmp/postgresql.trigger.$PG_PORT'" >> $PG_SVR_1_DATA_DIR/recovery.conf
+        fi
+# set permission       
+chown -R postgres:postgres /var/lib/postgresql/9.6/main
+chmod -R 700 /var/lib/postgresql/9.6/main
+chmod 700 /var/lib/postgresql/9.6/main/recovery.conf
+service postgresql start
+
+
+
