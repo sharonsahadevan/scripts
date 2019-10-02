@@ -19,17 +19,19 @@ MYSQL_PORT='PORT'
 MYSQL_USER='USER'
 MYSQL_PASSWORD='PASSWORD'
 BACKUP_RETAIN_DAYS=14   ## Number of days to keep local backup copy
+MYSQL=`which mysql`
+MYSQLDUMP=`which mysqldump`
  
 #################################################################
 
 mkdir -p ${DB_BACKUP_PATH}/${TODAY}
-databases=`/usr/local/mysql/bin/mysql -u${MYSQL_USER} -e 'show databases' -s --skip-column-names -p${MYSQL_PASSWORD} | grep -Ev "(Database|information_schema|performance_schema)"`;
+databases=`${MYSQL} -u${MYSQL_USER} -e 'show databases' -s --skip-column-names -p${MYSQL_PASSWORD} | grep -Ev "(Database|information_schema|performance_schema)"`;
 
 for DATABASE_NAME in $databases; do
 echo "Backup started for database - ${DATABASE_NAME}"
  
  
-/usr/local/mysql/bin/mysqldump --routines -h${MYSQL_HOST} -P${MYSQL_PORT} -u${MYSQL_USER} -p${MYSQL_PASSWORD}  ${DATABASE_NAME} | gzip > ${DB_BACKUP_PATH}/${TODAY}/${DATABASE_NAME}-${TODAY}.sql.gz
+${MYSQLDUMP} --routines -h${MYSQL_HOST} -P${MYSQL_PORT} -u${MYSQL_USER} -p${MYSQL_PASSWORD}  ${DATABASE_NAME} | gzip > ${DB_BACKUP_PATH}/${TODAY}/${DATABASE_NAME}-${TODAY}.sql.gz
  
 if [ $? -eq 0 ]; then
   echo "Database backup successfully completed"
